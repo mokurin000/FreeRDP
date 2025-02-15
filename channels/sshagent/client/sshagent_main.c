@@ -259,10 +259,12 @@ static UINT sshagent_on_close(IWTSVirtualChannelCallback* pChannelCallback)
  *
  * @return 0 on success, otherwise a Win32 error code
  */
+// NOLINTBEGIN(readability-non-const-parameter)
 static UINT sshagent_on_new_channel_connection(IWTSListenerCallback* pListenerCallback,
                                                IWTSVirtualChannel* pChannel, BYTE* Data,
                                                BOOL* pbAccept,
                                                IWTSVirtualChannelCallback** ppCallback)
+// NOLINTEND(readability-non-const-parameter)
 {
 	SSHAGENT_LISTENER_CALLBACK* listener_callback = (SSHAGENT_LISTENER_CALLBACK*)pListenerCallback;
 	WINPR_UNUSED(Data);
@@ -334,6 +336,7 @@ static UINT sshagent_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelMa
 	sshagent->listener_callback->iface.OnNewChannelConnection = sshagent_on_new_channel_connection;
 	sshagent->listener_callback->plugin = pPlugin;
 	sshagent->listener_callback->channel_mgr = pChannelMgr;
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
 	sshagent->listener_callback->agent_uds_path = getenv("SSH_AUTH_SOCK");
 
 	if (sshagent->listener_callback->agent_uds_path == NULL)

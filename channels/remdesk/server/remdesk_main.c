@@ -138,8 +138,9 @@ out:
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-static UINT remdesk_recv_ctl_version_info_pdu(RemdeskServerContext* context, wStream* s,
-                                              REMDESK_CHANNEL_HEADER* header)
+static UINT remdesk_recv_ctl_version_info_pdu(WINPR_ATTR_UNUSED RemdeskServerContext* context,
+                                              wStream* s,
+                                              WINPR_ATTR_UNUSED REMDESK_CHANNEL_HEADER* header)
 {
 	UINT32 versionMajor = 0;
 	UINT32 versionMinor = 0;
@@ -204,8 +205,8 @@ static UINT remdesk_recv_ctl_remote_control_desktop_pdu(RemdeskServerContext* co
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-static UINT remdesk_recv_ctl_authenticate_pdu(RemdeskServerContext* context, wStream* s,
-                                              REMDESK_CHANNEL_HEADER* header)
+static UINT remdesk_recv_ctl_authenticate_pdu(WINPR_ATTR_UNUSED RemdeskServerContext* context,
+                                              wStream* s, REMDESK_CHANNEL_HEADER* header)
 {
 	size_t cchTmpStringW = 0;
 	const WCHAR* expertBlobW = NULL;
@@ -266,8 +267,7 @@ static UINT remdesk_recv_ctl_authenticate_pdu(RemdeskServerContext* context, wSt
 static UINT remdesk_recv_ctl_verify_password_pdu(RemdeskServerContext* context, wStream* s,
                                                  REMDESK_CHANNEL_HEADER* header)
 {
-	REMDESK_CTL_VERIFY_PASSWORD_PDU pdu;
-	UINT error = 0;
+	REMDESK_CTL_VERIFY_PASSWORD_PDU pdu = { 0 };
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 		return ERROR_INVALID_DATA;
@@ -279,15 +279,15 @@ static UINT remdesk_recv_ctl_verify_password_pdu(RemdeskServerContext* context, 
 	const size_t cbExpertBlobW = header->DataLength - 4;
 
 	pdu.expertBlob = ConvertWCharNToUtf8Alloc(expertBlobW, cbExpertBlobW / sizeof(WCHAR), NULL);
-	if (pdu.expertBlob)
+	if (!pdu.expertBlob)
 		return ERROR_INTERNAL_ERROR;
 
 	WLog_INFO(TAG, "ExpertBlob: %s", pdu.expertBlob);
 
-	if ((error = remdesk_send_ctl_result_pdu(context, 0)))
-		WLog_ERR(TAG, "remdesk_send_ctl_result_pdu failed with error %" PRIu32 "!", error);
+	// TODO: Callback?
 
-	return error;
+	free(pdu.expertBlob);
+	return remdesk_send_ctl_result_pdu(context, 0);
 }
 
 /**

@@ -973,15 +973,14 @@ fail:
 	return rc;
 }
 
-static BOOL rdp_recv_server_shutdown_denied_pdu(rdpRdp* rdp, wStream* s)
+static BOOL rdp_recv_server_shutdown_denied_pdu(WINPR_ATTR_UNUSED rdpRdp* rdp,
+                                                WINPR_ATTR_UNUSED wStream* s)
 {
 	return TRUE;
 }
 
 static BOOL rdp_recv_server_set_keyboard_indicators_pdu(rdpRdp* rdp, wStream* s)
 {
-	UINT16 ledFlags = 0;
-
 	WINPR_ASSERT(rdp);
 	WINPR_ASSERT(s);
 
@@ -993,7 +992,7 @@ static BOOL rdp_recv_server_set_keyboard_indicators_pdu(rdpRdp* rdp, wStream* s)
 		return FALSE;
 
 	const uint16_t unitId = Stream_Get_UINT16(s); /* unitId (2 bytes) */
-	Stream_Read_UINT16(s, ledFlags); /* ledFlags (2 bytes) */
+	const UINT16 ledFlags = Stream_Get_UINT16(s); /* ledFlags (2 bytes) */
 	return IFCALLRESULT(TRUE, context->update->SetKeyboardIndicators, context, ledFlags);
 }
 
@@ -1853,7 +1852,8 @@ static state_run_t rdp_client_exchange_monitor_layout(rdpRdp* rdp, wStream* s)
 	return status;
 }
 
-static state_run_t rdp_recv_callback_int(rdpTransport* transport, wStream* s, void* extra)
+static state_run_t rdp_recv_callback_int(WINPR_ATTR_UNUSED rdpTransport* transport, wStream* s,
+                                         void* extra)
 {
 	state_run_t status = STATE_RUN_SUCCESS;
 	rdpRdp* rdp = (rdpRdp*)extra;
@@ -2799,7 +2799,7 @@ static BOOL parse_on_off_option(const char* value)
 
 #define STR(x) #x
 
-static BOOL option_is_runtime_checks(wLog* log, const char* tok)
+static BOOL option_is_runtime_checks(WINPR_ATTR_UNUSED wLog* log, const char* tok)
 {
 	const char* experimental[] = { STR(WITH_VERBOSE_WINPR_ASSERT) };
 	for (size_t x = 0; x < ARRAYSIZE(experimental); x++)
@@ -2813,7 +2813,7 @@ static BOOL option_is_runtime_checks(wLog* log, const char* tok)
 	return FALSE;
 }
 
-static BOOL option_is_experimental(wLog* log, const char* tok)
+static BOOL option_is_experimental(WINPR_ATTR_UNUSED wLog* log, const char* tok)
 {
 	const char* experimental[] = { STR(WITH_DSP_EXPERIMENTAL), STR(WITH_VAAPI) };
 	for (size_t x = 0; x < ARRAYSIZE(experimental); x++)

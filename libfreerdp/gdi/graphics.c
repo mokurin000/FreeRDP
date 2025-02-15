@@ -103,7 +103,7 @@ static BOOL gdi_Bitmap_New(rdpContext* context, rdpBitmap* bitmap)
 	return TRUE;
 }
 
-static void gdi_Bitmap_Free(rdpContext* context, rdpBitmap* bitmap)
+static void gdi_Bitmap_Free(WINPR_ATTR_UNUSED rdpContext* context, rdpBitmap* bitmap)
 {
 	gdiBitmap* gdi_bitmap = (gdiBitmap*)bitmap;
 
@@ -160,12 +160,16 @@ static BOOL gdi_Bitmap_Decompress(rdpContext* context, rdpBitmap* bitmap, const 
 	{
 		if ((codecId == RDP_CODEC_ID_REMOTEFX) || (codecId == RDP_CODEC_ID_IMAGE_REMOTEFX))
 		{
-			REGION16 invalidRegion;
+			REGION16 invalidRegion = { 0 };
 			region16_init(&invalidRegion);
 
-			if (!rfx_process_message(context->codecs->rfx, pSrcData, SrcSize, bitmap->left,
-			                         bitmap->top, bitmap->data, bitmap->format, gdi->stride,
-			                         WINPR_ASSERTING_INT_CAST(UINT32, gdi->height), &invalidRegion))
+			const BOOL rc =
+			    rfx_process_message(context->codecs->rfx, pSrcData, SrcSize, bitmap->left,
+			                        bitmap->top, bitmap->data, bitmap->format, gdi->stride,
+			                        WINPR_ASSERTING_INT_CAST(UINT32, gdi->height), &invalidRegion);
+			region16_uninit(&invalidRegion);
+
+			if (!rc)
 			{
 				WLog_ERR(TAG, "rfx_process_message failed");
 				return FALSE;
@@ -301,7 +305,7 @@ static BOOL gdi_Glyph_New(rdpContext* context, rdpGlyph* glyph)
 	return TRUE;
 }
 
-static void gdi_Glyph_Free(rdpContext* context, rdpGlyph* glyph)
+static void gdi_Glyph_Free(WINPR_ATTR_UNUSED rdpContext* context, rdpGlyph* glyph)
 {
 	gdiGlyph* gdi_glyph = NULL;
 	gdi_glyph = (gdiGlyph*)glyph;
@@ -424,8 +428,10 @@ static BOOL gdi_Glyph_BeginDraw(rdpContext* context, INT32 x, INT32 y, INT32 wid
 	return TRUE;
 }
 
-static BOOL gdi_Glyph_EndDraw(rdpContext* context, INT32 x, INT32 y, INT32 width, INT32 height,
-                              UINT32 bgcolor, UINT32 fgcolor)
+static BOOL gdi_Glyph_EndDraw(rdpContext* context, WINPR_ATTR_UNUSED INT32 x,
+                              WINPR_ATTR_UNUSED INT32 y, WINPR_ATTR_UNUSED INT32 width,
+                              WINPR_ATTR_UNUSED INT32 height, WINPR_ATTR_UNUSED UINT32 bgcolor,
+                              WINPR_ATTR_UNUSED UINT32 fgcolor)
 {
 	rdpGdi* gdi = NULL;
 

@@ -68,7 +68,7 @@ class SdlWidget
 	[[nodiscard]] const SDL_FRect& rect() const;
 
 #define widget_log_error(res, what) SdlWidget::error_ex(res, what, __FILE__, __LINE__, __func__)
-	static bool error_ex(Sint32 res, const char* what, const char* file, size_t line,
+	static bool error_ex(bool success, const char* what, const char* file, size_t line,
 	                     const char* fkt);
 
   private:
@@ -79,7 +79,7 @@ class SdlWidget
 
 	TTF_Font* _font = nullptr;
 	SDL_Texture* _image = nullptr;
-	SDL_FRect _rect;
+	SDL_FRect _rect = {};
 	bool _input = false;
 	bool _wrap = false;
 	size_t _text_width = 0;

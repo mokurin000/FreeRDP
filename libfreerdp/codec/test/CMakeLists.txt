@@ -16,6 +16,10 @@ set(TESTS
     TestFreeRDPCodecRemoteFX.c
 )
 
+if(NOT BUILD_TESTING_NO_H264)
+  list(APPEND TESTS TestFreeRDPCodecH264.c)
+endif()
+
 if(BUILD_TESTING_INTERNAL)
   list(APPEND TESTS TestFreeRDPCodecMppc.c TestFreeRDPCodecNCrush.c TestFreeRDPCodecXCrush.c)
 endif()

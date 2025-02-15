@@ -497,7 +497,7 @@ fail:
 	return NULL;
 }
 
-BOOL PathMakePathA(LPCSTR path, LPSECURITY_ATTRIBUTES lpAttributes)
+BOOL PathMakePathA(LPCSTR path, WINPR_ATTR_UNUSED LPSECURITY_ATTRIBUTES lpAttributes)
 {
 #if defined(_UWP)
 	return FALSE;
@@ -550,7 +550,7 @@ BOOL PathMakePathA(LPCSTR path, LPSECURITY_ATTRIBUTES lpAttributes)
 #endif
 }
 
-BOOL PathMakePathW(LPCWSTR path, LPSECURITY_ATTRIBUTES lpAttributes)
+BOOL PathMakePathW(LPCWSTR path, WINPR_ATTR_UNUSED LPSECURITY_ATTRIBUTES lpAttributes)
 {
 #if defined(_UWP)
 	return FALSE;
@@ -668,6 +668,7 @@ BOOL PathIsDirectoryEmptyA(LPCSTR pszPath)
 	if (dir == NULL) /* Not a directory or doesn't exist */
 		return 1;
 
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
 	while ((dp = readdir(dir)) != NULL)
 	{
 		if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)

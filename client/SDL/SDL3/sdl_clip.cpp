@@ -32,7 +32,8 @@
 #define TAG CLIENT_TAG("sdl.cliprdr")
 
 #define mime_text_plain "text/plain"
-#define mime_text_utf8 mime_text_plain ";charset=utf-8"
+// NOLINTNEXTLINE(bugprone-suspicious-missing-comma)
+const char mime_text_utf8[] = mime_text_plain ";charset=utf-8";
 
 static const std::vector<const char*>& s_mime_text()
 {
@@ -158,7 +159,19 @@ BOOL sdlClip::uninit(CliprdrClientContext* clip)
 bool sdlClip::handle_update(const SDL_ClipboardEvent& ev)
 {
 	if (!_ctx || !_sync || ev.owner)
+	{
+		/* TODO: Hack to identify our own updates */
+		if (ev.owner && (ev.reserved == 0x42))
+		{
+			_cache_data.clear();
+			auto rc =
+			    SDL_SetClipboardData(sdlClip::ClipDataCb, sdlClip::ClipCleanCb, this, ev.mime_types,
+			                         WINPR_ASSERTING_INT_CAST(size_t, ev.num_mime_types));
+			_current_mimetypes.clear();
+			return rc;
+		}
 		return true;
+	}
 
 	clearServerFormats();
 
@@ -175,7 +188,11 @@ bool sdlClip::handle_update(const SDL_ClipboardEvent& ev)
 	std::vector<std::string> clientFormatNames;
 	std::vector<CLIPRDR_FORMAT> clientFormats;
 
+#if SDL_VERSION_ATLEAST(3, 1, 8)
+	size_t nformats = WINPR_ASSERTING_INT_CAST(size_t, ev.num_mime_types);
+#else
 	size_t nformats = WINPR_ASSERTING_INT_CAST(size_t, ev.n_mime_types);
+#endif
 	const char** clipboard_mime_formats = ev.mime_types;
 
 	WLog_Print(_log, WLOG_TRACE, "SDL has %d formats", nformats);
@@ -233,9 +250,9 @@ bool sdlClip::handle_update(const SDL_ClipboardEvent& ev)
 	clientFormats.erase(u, clientFormats.end());
 
 	const CLIPRDR_FORMAT_LIST formatList = {
-		.common = { .msgType = CB_FORMAT_LIST, .msgFlags = 0, .dataLen = 0 },
-		.numFormats = static_cast<UINT32>(clientFormats.size()),
-		.formats = clientFormats.data(),
+		{ CB_FORMAT_LIST, 0, 0 },
+		static_cast<UINT32>(clientFormats.size()),
+		clientFormats.data(),
 	};
 
 	WLog_Print(_log, WLOG_TRACE,
@@ -268,8 +285,7 @@ UINT sdlClip::MonitorReady(CliprdrClientContext* context, const CLIPRDR_MONITOR_
 		return ret;
 
 	clipboard->_sync = true;
-	SDL_ClipboardEvent ev = { SDL_EVENT_CLIPBOARD_UPDATE, 0, 0, false, 0, nullptr };
-	if (!clipboard->handle_update(ev))
+	if (!sdl_push_user_event(SDL_EVENT_CLIPBOARD_UPDATE))
 		return ERROR_INTERNAL_ERROR;
 
 	return CHANNEL_RC_OK;
@@ -278,15 +294,11 @@ UINT sdlClip::MonitorReady(CliprdrClientContext* context, const CLIPRDR_MONITOR_
 UINT sdlClip::SendClientCapabilities()
 {
 	CLIPRDR_GENERAL_CAPABILITY_SET generalCapabilitySet = {
-		.capabilitySetType = CB_CAPSTYPE_GENERAL,
-		.capabilitySetLength = 12,
-		.version = CB_CAPS_VERSION_2,
-		.generalFlags = CB_USE_LONG_FORMAT_NAMES | cliprdr_file_context_current_flags(_file)
+		CB_CAPSTYPE_GENERAL, 12, CB_CAPS_VERSION_2,
+		CB_USE_LONG_FORMAT_NAMES | cliprdr_file_context_current_flags(_file)
 	};
-	CLIPRDR_CAPABILITIES capabilities = {
-		.common = { .msgType = CB_TYPE_NONE, .msgFlags = 0, .dataLen = 0 },
-		.cCapabilitiesSets = 1,
-		.capabilitySets = reinterpret_cast<CLIPRDR_CAPABILITY_SET*>(&generalCapabilitySet)
+	const CLIPRDR_CAPABILITIES capabilities = {
+		{ CB_TYPE_NONE, 0, 0 }, 1, reinterpret_cast<CLIPRDR_CAPABILITY_SET*>(&generalCapabilitySet)
 	};
 
 	WINPR_ASSERT(_ctx);
@@ -297,15 +309,15 @@ UINT sdlClip::SendClientCapabilities()
 void sdlClip::clearServerFormats()
 {
 	_serverFormats.clear();
+	_cache_data.clear();
 	cliprdr_file_context_clear(_file);
 }
 
 UINT sdlClip::SendFormatListResponse(BOOL status)
 {
 	const CLIPRDR_FORMAT_LIST_RESPONSE formatListResponse = {
-		.common = { .msgType = CB_FORMAT_LIST_RESPONSE,
-		            .msgFlags = static_cast<UINT16>(status ? CB_RESPONSE_OK : CB_RESPONSE_FAIL),
-		            .dataLen = 0 }
+		{ CB_FORMAT_LIST_RESPONSE, static_cast<UINT16>(status ? CB_RESPONSE_OK : CB_RESPONSE_FAIL),
+		  0 }
 	};
 	WINPR_ASSERT(_ctx);
 	WINPR_ASSERT(_ctx->ClientFormatListResponse);
@@ -330,10 +342,7 @@ UINT sdlClip::SendDataResponse(const BYTE* data, size_t size)
 
 UINT sdlClip::SendDataRequest(uint32_t formatID, const std::string& mime)
 {
-	CLIPRDR_FORMAT_DATA_REQUEST request = {
-		.common = { .msgType = CB_TYPE_NONE, .msgFlags = 0, .dataLen = 0 },
-		.requestedFormatId = formatID
-	};
+	const CLIPRDR_FORMAT_DATA_REQUEST request = { { CB_TYPE_NONE, 0, 0 }, formatID };
 
 	_request_queue.emplace(formatID, mime);
 
@@ -478,33 +487,43 @@ UINT sdlClip::ReceiveServerFormatList(CliprdrClientContext* context,
 		}
 	}
 
-	std::vector<const char*> mimetypes;
+	clipboard->_current_mimetypes.clear();
 	if (text)
 	{
-		mimetypes.insert(mimetypes.end(), s_mime_text().begin(), s_mime_text().end());
+		clipboard->_current_mimetypes.insert(clipboard->_current_mimetypes.end(),
+		                                     s_mime_text().begin(), s_mime_text().end());
 	}
 	if (image)
 	{
-		mimetypes.insert(mimetypes.end(), s_mime_bitmap().begin(), s_mime_bitmap().end());
-		mimetypes.insert(mimetypes.end(), s_mime_image().begin(), s_mime_image().end());
+		clipboard->_current_mimetypes.insert(clipboard->_current_mimetypes.end(),
+		                                     s_mime_bitmap().begin(), s_mime_bitmap().end());
+		clipboard->_current_mimetypes.insert(clipboard->_current_mimetypes.end(),
+		                                     s_mime_image().begin(), s_mime_image().end());
 	}
 	if (html)
 	{
-		mimetypes.push_back(s_mime_html);
+		clipboard->_current_mimetypes.push_back(s_mime_html);
 	}
 	if (file)
 	{
-		mimetypes.push_back(s_mime_uri_list);
-		mimetypes.push_back(s_mime_gnome_copied_files);
-		mimetypes.push_back(s_mime_mate_copied_files);
+		clipboard->_current_mimetypes.push_back(s_mime_uri_list);
+		clipboard->_current_mimetypes.push_back(s_mime_gnome_copied_files);
+		clipboard->_current_mimetypes.push_back(s_mime_mate_copied_files);
 	}
 
-	const bool rc = SDL_SetClipboardData(sdlClip::ClipDataCb, sdlClip::ClipCleanCb, clipboard,
-	                                     mimetypes.data(), mimetypes.size());
+	auto s = clipboard->_current_mimetypes.size();
+	SDL_Event ev = { SDL_EVENT_CLIPBOARD_UPDATE };
+	ev.clipboard.owner = true;
+	ev.clipboard.num_mime_types = WINPR_ASSERTING_INT_CAST(Sint32, s);
+	ev.clipboard.mime_types = clipboard->_current_mimetypes.data();
+
+	/* TODO: Hack to identify our own updates */
+	ev.clipboard.reserved = 0x42;
+	auto rc = (SDL_PushEvent(&ev) == 1);
 	return clipboard->SendFormatListResponse(rc);
 }
 
-UINT sdlClip::ReceiveFormatListResponse(CliprdrClientContext* context,
+UINT sdlClip::ReceiveFormatListResponse(WINPR_ATTR_UNUSED CliprdrClientContext* context,
                                         const CLIPRDR_FORMAT_LIST_RESPONSE* formatListResponse)
 {
 	WINPR_ASSERT(context);
@@ -744,6 +763,8 @@ const void* sdlClip::ClipDataCb(void* userdata, const char* mime_type, size_t* s
 		}
 
 		uint32_t formatID = clip->serverIdForMime(mime_type);
+		WLog_Print(clip->_log, WLOG_INFO, "requesting format %s [0x%08" PRIx32 "]", mime_type,
+		           formatID);
 		if (clip->SendDataRequest(formatID, mime_type))
 			return nullptr;
 	}
@@ -751,15 +772,7 @@ const void* sdlClip::ClipDataCb(void* userdata, const char* mime_type, size_t* s
 	{
 		HANDLE hdl[2] = { freerdp_abort_event(clip->_sdl->context()), clip->_event };
 
-		// Unlock the sdl->critical lock or we'll deadlock with the FreeRDP thread
-		// when it pushes events (like end_paint).
-		// we can safely do that here as we're called from the SDL thread
-		SdlContext* sdl = clip->_sdl;
-		sdl->critical.unlock();
-
 		DWORD status = WaitForMultipleObjects(ARRAYSIZE(hdl), hdl, FALSE, 10 * 1000);
-
-		sdl->critical.lock();
 
 		if (status != WAIT_OBJECT_0 + 1)
 		{
@@ -810,7 +823,6 @@ void sdlClip::ClipCleanCb(void* userdata)
 	ClipboardLockGuard give_me_a_name(clip->_system);
 	std::lock_guard<CriticalSection> lock(clip->_lock);
 	ClipboardEmpty(clip->_system);
-	clip->_cache_data.clear();
 }
 
 bool sdlClip::mime_is_file(const std::string& mime)

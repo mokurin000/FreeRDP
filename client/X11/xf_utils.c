@@ -172,6 +172,7 @@ int LogDynAndXGetWindowProperty_ex(wLog* log, const char* file, const char* fkt,
 
 BOOL IsGnome(void)
 {
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
 	char* env = getenv("DESKTOP_SESSION");
 	return (env != NULL && strcmp(env, "gnome") == 0);
 }
@@ -191,7 +192,10 @@ BOOL run_action_script(xfContext* xfc, const char* what, const char* arg, fn_act
 	xfc->actionScriptExists = winpr_PathFileExists(ActionScript);
 
 	if (!xfc->actionScriptExists)
+	{
+		WLog_WARN(TAG, "[ActionScript] no such script '%s'", ActionScript);
 		goto fail;
+	}
 
 	char command[2048] = { 0 };
 	(void)sprintf_s(command, sizeof(command), "%s %s", ActionScript, what);
@@ -220,11 +224,12 @@ BOOL run_action_script(xfContext* xfc, const char* what, const char* arg, fn_act
 
 	rc = read_data;
 fail:
-	if (!rc)
-		xfc->actionScriptExists = FALSE;
 	if (keyScript)
 		pclose(keyScript);
-	return rc;
+	const BOOL res = rc || !xfc->actionScriptExists;
+	if (!rc)
+		xfc->actionScriptExists = FALSE;
+	return res;
 }
 
 const char* x11_error_to_string(xfContext* xfc, int error, char* buffer, size_t size)

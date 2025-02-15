@@ -42,7 +42,7 @@ static const SDL_Color backgroundcolor = { 0x38, 0x36, 0x35, 0xff };
 
 static const Uint32 hpadding = 10;
 
-SdlWidget::SdlWidget(SDL_Renderer* renderer, const SDL_FRect& rect, bool input)
+SdlWidget::SdlWidget([[maybe_unused]] SDL_Renderer* renderer, const SDL_FRect& rect, bool input)
     : _rect(rect), _input(input)
 {
 	assert(renderer);
@@ -195,13 +195,20 @@ SdlWidget::~SdlWidget()
 		SDL_DestroyTexture(_image);
 }
 
-bool SdlWidget::error_ex(Sint32 res, const char* what, const char* file, size_t line,
+bool SdlWidget::error_ex(bool success, const char* what, const char* file, size_t line,
                          const char* fkt)
 {
+	if (success)
+	{
+		// Flip SDL3 convention to existing code convention to minimize code changes
+		return false;
+	}
 	static wLog* log = nullptr;
 	if (!log)
 		log = WLog_Get(TAG);
-	return sdl_log_error_ex(res, log, what, file, line, fkt);
+	// Use -1 as it indicates error similar to SDL2 conventions
+	// sdl_log_error_ex treats any value other than 0 as SDL error
+	return sdl_log_error_ex(-1, log, what, file, line, fkt);
 }
 
 static bool draw_rect(SDL_Renderer* renderer, const SDL_FRect* rect, SDL_Color color)

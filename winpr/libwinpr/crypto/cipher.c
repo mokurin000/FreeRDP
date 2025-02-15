@@ -251,9 +251,9 @@ static int cipher_compare(const void* a, const void* b)
 	return *cipher > map->md ? 1 : -1;
 }
 
-const char* winpr_cipher_type_to_string(WINPR_CIPHER_TYPE cipher)
+const char* winpr_cipher_type_to_string(WINPR_CIPHER_TYPE md)
 {
-	WINPR_CIPHER_TYPE lc = cipher;
+	WINPR_CIPHER_TYPE lc = md;
 	const struct cipher_map* ret = bsearch(&lc, s_cipher_map, ARRAYSIZE(s_cipher_map),
 	                                       sizeof(struct cipher_map), cipher_compare);
 	if (!ret)
@@ -581,8 +581,8 @@ WINPR_CIPHER_CTX* winpr_Cipher_New(WINPR_CIPHER_TYPE cipher, WINPR_CRYPTO_OPERAT
 }
 
 WINPR_API WINPR_CIPHER_CTX* winpr_Cipher_NewEx(WINPR_CIPHER_TYPE cipher, WINPR_CRYPTO_OPERATION op,
-                                               const void* key, size_t keylen, const void* iv,
-                                               size_t ivlen)
+                                               const void* key, WINPR_ATTR_UNUSED size_t keylen,
+                                               const void* iv, WINPR_ATTR_UNUSED size_t ivlen)
 {
 	if (cipher == WINPR_CIPHER_ARC4_128)
 	{

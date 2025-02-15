@@ -201,7 +201,8 @@ BOOL sdl_choose_smartcard(freerdp* instance, SmartcardCertInfo** cert_list, DWOR
 	return res;
 }
 
-SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current, void* userarg)
+SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current,
+                         [[maybe_unused]] void* userarg)
 {
 	WINPR_ASSERT(instance);
 	WINPR_ASSERT(instance->context);
@@ -254,8 +255,9 @@ SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current, vo
 	return WINPR_ASSERTING_INT_CAST(ssize_t, delay);
 }
 
-BOOL sdl_present_gateway_message(freerdp* instance, UINT32 type, BOOL isDisplayMandatory,
-                                 BOOL isConsentMandatory, size_t length, const WCHAR* wmessage)
+BOOL sdl_present_gateway_message(freerdp* instance, [[maybe_unused]] UINT32 type,
+                                 BOOL isDisplayMandatory, BOOL isConsentMandatory, size_t length,
+                                 const WCHAR* wmessage)
 {
 	if (!isDisplayMandatory)
 		return TRUE;
@@ -545,28 +547,27 @@ BOOL sdl_message_dialog_show(const char* title, const char* message, Sint32 flag
 
 BOOL sdl_auth_dialog_show(const SDL_UserAuthArg* args)
 {
-	const std::vector<std::string> auth = { "Username:        ", "Domain:          ",
-		                                    "Password:        " };
-	const std::vector<std::string> authPin = { "Device:       ", "PIN:        " };
-	const std::vector<std::string> gw = { "GatewayUsername: ", "GatewayDomain:   ",
-		                                  "GatewayPassword: " };
+	std::vector<std::string> auth = { "Username:        ", "Domain:          ",
+		                              "Password:        " };
+	std::vector<std::string> authPin = { "Device:       ", "PIN:        " };
+	std::vector<std::string> gw = { "GatewayUsername: ", "GatewayDomain:   ", "GatewayPassword: " };
 	std::vector<std::string> prompt;
 	Sint32 rc = -1;
 
 	switch (args->result)
 	{
 		case AUTH_SMARTCARD_PIN:
-			prompt = authPin;
+			prompt = std::move(authPin);
 			break;
 		case AUTH_TLS:
 		case AUTH_RDP:
 		case AUTH_NLA:
-			prompt = auth;
+			prompt = std::move(auth);
 			break;
 		case GW_AUTH_HTTP:
 		case GW_AUTH_RDG:
 		case GW_AUTH_RPC:
-			prompt = gw;
+			prompt = std::move(gw);
 			break;
 		default:
 			break;
